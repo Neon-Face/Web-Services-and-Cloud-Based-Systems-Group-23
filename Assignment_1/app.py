@@ -1,27 +1,14 @@
-from flask import Flask, request, jsonify, redirect
+from flask import Flask, request, jsonify
 import re
 import string
 import random
 
 app = Flask(__name__)
-
 url_mapping = {}
-
 
 def generate_short_id():
     characters = string.ascii_letters + string.digits
-    short_id = ''.join(random.choice(characters) for _ in range(6))
-    return short_id
-
-@app.route('/', methods=['POST'])
-def create_short_url():
-    data = request.get_json()
-    url = data.get('value')
-    if not url or not is_valid_url(url):
-        return jsonify({"error": "Invalid URL"}), 400
-    short_id = generate_short_id()
-    url_mapping[short_id] = url
-    return jsonify({"id": short_id}), 201
+    return ''.join(random.choice(characters) for _ in range(6))
 
 def is_valid_url(url):
     regex = re.compile(
@@ -35,19 +22,16 @@ def is_valid_url(url):
     return re.match(regex, url) is not None
 
 @app.route('/', methods=['GET'])
-def get_keys():
+def get_all_urls():
     return jsonify(list(url_mapping.keys())), 200
 
 @app.route('/', methods=['POST'])
-def add_url():
-    url = request.json.get('url')
+def create_short_url():
+    data = request.get_json()
+    url = data.get('value')
     if not url or not is_valid_url(url):
         return jsonify({"error": "Invalid URL"}), 400
-    
     short_id = generate_short_id()
-    while short_id in url_mapping:
-        short_id = generate_short_id()
-    
     url_mapping[short_id] = url
     return jsonify({"id": short_id}), 201
 
@@ -59,6 +43,9 @@ def redirect_to_url(short_id):
 
 @app.route('/<short_id>', methods=['PUT'])
 def update_url(short_id):
+    if not request.is_json:
+        return jsonify({"error": "Request must be JSON"}), 415
+
     data = request.get_json()
     new_url = data.get('url')
     if not new_url or not is_valid_url(new_url):
@@ -78,7 +65,7 @@ def delete_url(short_id):
 @app.route('/', methods=['DELETE'])
 def delete_all_urls():
     url_mapping.clear()
-    return '', 404
+    return '', 404  # 返回404状态码表示未找到
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(port=5000,debug=True)
