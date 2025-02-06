@@ -7,10 +7,21 @@ app = Flask(__name__)
 
 url_mapping = {}
 
+
 def generate_short_id():
     characters = string.ascii_letters + string.digits
     short_id = ''.join(random.choice(characters) for _ in range(6))
     return short_id
+
+@app.route('/', methods=['POST'])
+def create_short_url():
+    data = request.get_json()
+    url = data.get('value')
+    if not url or not is_valid_url(url):
+        return jsonify({"error": "Invalid URL"}), 400
+    short_id = generate_short_id()
+    url_mapping[short_id] = url
+    return jsonify({"id": short_id}), 201
 
 def is_valid_url(url):
     regex = re.compile(
@@ -42,29 +53,27 @@ def add_url():
 
 @app.route('/<short_id>', methods=['GET'])
 def redirect_to_url(short_id):
-    if short_id not in url_mapping:
-        return jsonify({"error": "Not found"}), 404
-    return redirect(url_mapping[short_id], code=301)
+    if short_id in url_mapping:
+        return jsonify({"value": url_mapping[short_id]}), 301
+    return jsonify({"error": "Not found"}), 404
 
 @app.route('/<short_id>', methods=['PUT'])
 def update_url(short_id):
+    data = request.get_json()
+    new_url = data.get('url')
+    if not new_url or not is_valid_url(new_url):
+        return jsonify({"error": "Invalid URL"}), 400
     if short_id not in url_mapping:
         return jsonify({"error": "Not found"}), 404
-    
-    url = request.json.get('url')
-    if not url or not is_valid_url(url):
-        return jsonify({"error": "Invalid URL"}), 400
-    
-    url_mapping[short_id] = url
-    return jsonify({"id": short_id}), 200
+    url_mapping[short_id] = new_url
+    return jsonify({"message": "URL updated"}), 200
 
 @app.route('/<short_id>', methods=['DELETE'])
 def delete_url(short_id):
-    if short_id not in url_mapping:
-        return jsonify({"error": "Not found"}), 404
-    
-    del url_mapping[short_id]
-    return '', 204
+    if short_id in url_mapping:
+        del url_mapping[short_id]
+        return '', 204
+    return jsonify({"error": "Not found"}), 404
 
 @app.route('/', methods=['DELETE'])
 def delete_all_urls():
@@ -72,4 +81,4 @@ def delete_all_urls():
     return '', 404
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5000)
