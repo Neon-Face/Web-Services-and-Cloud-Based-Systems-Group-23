@@ -8,7 +8,9 @@ app = Flask(__name__)
 url_mapping = {}
 
 def generate_short_id():
-    return 
+    characters = string.ascii_letters + string.digits
+    short_id = ''.join(random.choice(characters) for _ in range(6))
+    return short_id
 
 def is_valid_url(url):
     regex = re.compile(
