@@ -1,4 +1,3 @@
-import json
 from flask import Flask, request, jsonify, redirect
 import re
 import random
