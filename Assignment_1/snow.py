@@ -69,7 +69,7 @@ def encode_base62(num):
     
     return ''.join(reversed(base62))
 
-     
+
 URL_REGEX = re.compile(r'^(https?:\/\/)?([\w\.-]+)\.([a-z]{2,6})([\/\w .–#%()\[\]\'-]*)*\/?$', re.UNICODE)
 
 app = Flask(__name__)

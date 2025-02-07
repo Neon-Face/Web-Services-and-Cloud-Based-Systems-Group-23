@@ -1,49 +1,101 @@
-from flask import Flask, request, jsonify, redirect
 import re
-import random
-import string
+import time
+import threading
+from flask import Flask, request, jsonify
+
+
+class SnowflakeIDGenerator:
+    def __init__(self, machine_id):
+        self.machine_id = machine_id  
+        self.sequence = 0  
+        self.last_timestamp = -1  
+        self.lock = threading.Lock()  
+
+        self.timestamp_bits = 31
+        self.machine_id_bits = 5
+        self.sequence_bits = 5
+
+        self.max_machine_id = (1 << self.machine_id_bits) - 1
+        self.max_sequence = (1 << self.sequence_bits) - 1
+
+        self.timestamp_shift = self.machine_id_bits + self.sequence_bits
+        self.machine_id_shift = self.sequence_bits
+
+        if self.machine_id > self.max_machine_id or self.machine_id < 0:
+            raise ValueError(f"Machine ID must be between 0 and {self.max_machine_id}")
+
+    def _current_timestamp(self):
+        return int(time.time())
+
+    def _wait_for_next_timestamp(self, last_timestamp):
+        timestamp = self._current_timestamp()
+        while timestamp <= last_timestamp:
+            timestamp = self._current_timestamp()
+        return timestamp
+
+    def generate_id(self):
+        with self.lock:
+            timestamp = self._current_timestamp()
+
+            if timestamp < self.last_timestamp:
+                raise Exception("Clock moved backwards. Refusing to generate ID.")
+
+            if timestamp == self.last_timestamp:
+                self.sequence = (self.sequence + 1) & self.max_sequence
+                if self.sequence == 0:
+                    timestamp = self._wait_for_next_timestamp(self.last_timestamp)
+            else:
+                self.sequence = 0
+
+            self.last_timestamp = timestamp
+
+            id = (
+                (timestamp << self.timestamp_shift) |
+                (self.machine_id << self.machine_id_shift) |
+                self.sequence
+            )
+            return id
+
+# Base58 alphabet
+BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+
+def encode_base58(num):
+    if num == 0:
+        return BASE58_ALPHABET[0]
+    
+    base58 = []
+    while num:
+        num, rem = divmod(num, 58)
+        base58.append(BASE58_ALPHABET[rem])
+    
+    return ''.join(reversed(base58))
+
+
+URL_REGEX = re.compile(r'^(https?:\/\/)?([\w\.-]+)\.([a-z]{2,6})([\/\w .–#%()\[\]\'-]*)*\/?$', re.UNICODE)
 
 app = Flask(__name__)
 
 url_mapping = {}
 
-BASE62 = string.ascii_letters + string.digits
-
-URL_REGEX = re.compile(r'^(https?:\/\/)?([\w\.-]+)\.([a-z]{2,6})([\/\w .–#%()\[\]\'-]*)*\/?$', re.UNICODE)
-
-def generate_short_id(length=6):
-    while True:
-        short_id = ''.join(random.choices(BASE62, k=length))
-        if short_id not in url_mapping:
-            return short_id
+id_generator = SnowflakeIDGenerator(machine_id=1) 
 
 @app.route('/', methods=['POST'])
-def shorten_url():
+def create_short_url():
     data = request.get_json()
-    if not data:
-        print('not data Missing URL')
-        return jsonify({'error': 'Missing URL'}), 400
-    
-    original_url = data['value']
+    url = data.get('value')
+    if not url:
+        return jsonify({"error": "URL is required"}), 400
 
-    if not original_url:
-        print('not original_url Missing URL')
-        return jsonify({'error': 'Missing URL'}), 400
+    short_id = str(encode_base58(id_generator.generate_id()))
+    url_mapping[short_id] = url
 
-    if not re.match(URL_REGEX, original_url):
-        print('Invalid URL',original_url)
-        return jsonify({'error': 'Invalid URL'}), 400
-    
-    short_id = generate_short_id()
-    url_mapping[short_id] = original_url
-    return jsonify({'id': short_id}), 201
+    return jsonify({"id": short_id}), 201
 
-
-@app.route('/<string:short_id>', methods=['GET'])
+@app.route('/<short_id>', methods=['GET'])
 def redirect_to_url(short_id):
     if short_id in url_mapping:
         return jsonify({"value": url_mapping[short_id]}), 301
-    return jsonify({'error': 'Not found'}), 404
+    return jsonify({"error": "Not found"}), 404
 
 @app.route('/<string:short_id>', methods=['PUT'])
 def update_url(short_id):
@@ -64,10 +116,10 @@ def update_url(short_id):
 
 @app.route('/<string:short_id>', methods=['DELETE'])
 def delete_url(short_id):
-    if short_id in url_mapping:
-        del url_mapping[short_id]
-        return '', 204
-    return jsonify({'error': 'Not found'}), 404
+    if short_id not in url_mapping:
+        return jsonify({'error': 'Not found'}), 404
+    del url_mapping[short_id]
+    return '', 204
 
 @app.route('/', methods=['GET'])
 def list_urls():
