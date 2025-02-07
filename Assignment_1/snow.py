@@ -3,19 +3,7 @@ import time
 import threading
 from flask import Flask, request, jsonify
 import string
-
-BASE62_ALPHABET = string.digits + string.ascii_lowercase + string.ascii_uppercase  # '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-
-def encode_base62(num):
-    if num == 0:
-        return BASE62_ALPHABET[0]
-    
-    base62 = []
-    while num:
-        num, rem = divmod(num, 62)
-        base62.append(BASE62_ALPHABET[rem])
-    
-    return ''.join(reversed(base62))
+import base64
 
 class SnowflakeIDGenerator:
     def __init__(self, machine_id):
@@ -68,7 +56,20 @@ class SnowflakeIDGenerator:
                 self.sequence
             )
             return id
-        
+
+# Base62
+BASE62_ALPHABET = string.digits + string.ascii_lowercase + string.ascii_uppercase  # '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+def encode_base62(num):
+    if num == 0:
+        return BASE62_ALPHABET[0]
+    
+    base62 = []
+    while num:
+        num, rem = divmod(num, 62)
+        base62.append(BASE62_ALPHABET[rem])
+    
+    return ''.join(reversed(base62))
+     
 
 URL_REGEX = re.compile(r'^(https?:\/\/)?([\w\.-]+)\.([a-z]{2,6})([\/\w .–#%()\[\]\'-]*)*\/?$', re.UNICODE)
 
