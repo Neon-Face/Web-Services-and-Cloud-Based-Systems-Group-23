@@ -1,3 +1,4 @@
+# Snow.py
 This code implements a URL shortener based on the Snowflake algorithm for generating unique IDs. The algorithm for compressing the ID length can be divided into two parts: **Snowflake ID generation** and **Base62 encoding**.
 
 ### 1. **Snowflake ID Generator:**
