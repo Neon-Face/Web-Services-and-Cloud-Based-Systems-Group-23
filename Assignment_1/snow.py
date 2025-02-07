@@ -3,7 +3,6 @@ import time
 import threading
 from flask import Flask, request, jsonify
 import string
-import base64
 
 class SnowflakeIDGenerator:
     def __init__(self, machine_id):
@@ -69,13 +68,13 @@ def encode_base62(num):
         base62.append(BASE62_ALPHABET[rem])
     
     return ''.join(reversed(base62))
-     
 
+     
 URL_REGEX = re.compile(r'^(https?:\/\/)?([\w\.-]+)\.([a-z]{2,6})([\/\w .–#%()\[\]\'-]*)*\/?$', re.UNICODE)
 
 app = Flask(__name__)
-url_mapping = {}
 
+url_mapping = {}
 
 id_generator = SnowflakeIDGenerator(machine_id=1) 
 
