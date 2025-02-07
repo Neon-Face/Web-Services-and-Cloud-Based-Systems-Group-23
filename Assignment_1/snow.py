@@ -2,6 +2,20 @@ import re
 import time
 import threading
 from flask import Flask, request, jsonify
+import string
+
+BASE62_ALPHABET = string.digits + string.ascii_lowercase + string.ascii_uppercase  # '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+def encode_base62(num):
+    if num == 0:
+        return BASE62_ALPHABET[0]
+    
+    base62 = []
+    while num:
+        num, rem = divmod(num, 62)
+        base62.append(BASE62_ALPHABET[rem])
+    
+    return ''.join(reversed(base62))
 
 class SnowflakeIDGenerator:
     def __init__(self, machine_id):
@@ -10,7 +24,7 @@ class SnowflakeIDGenerator:
         self.last_timestamp = -1  
         self.lock = threading.Lock()  
 
-        self.timestamp_bits = 32
+        self.timestamp_bits = 31
         self.machine_id_bits = 5
         self.sequence_bits = 5
 
@@ -71,8 +85,7 @@ def create_short_url():
     if not url:
         return jsonify({"error": "URL is required"}), 400
 
-    # 生成唯一 ID
-    short_id = str(id_generator.generate_id())
+    short_id = str(encode_base62(id_generator.generate_id()))
     url_mapping[short_id] = url
 
     return jsonify({"id": short_id}), 201
