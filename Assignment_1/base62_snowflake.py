@@ -3,6 +3,7 @@ import time
 import threading
 from flask import Flask, request, jsonify
 import string
+import base62
 
 class Base62SnowflakeIDGenerator:
     def __init__(self, machine_id):
@@ -23,9 +24,6 @@ class Base62SnowflakeIDGenerator:
 
         if self.machine_id > self.max_machine_id or self.machine_id < 0:
             raise ValueError(f"Machine ID must be between 0 and {self.max_machine_id}")
-        
-        self.BASE62_ALPHABET = string.digits + string.ascii_lowercase + string.ascii_uppercase  # '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-
 
     def _current_timestamp(self):
         return int(time.time())
@@ -35,17 +33,6 @@ class Base62SnowflakeIDGenerator:
         while timestamp <= last_timestamp:
             timestamp = self._current_timestamp()
         return timestamp
-
-    def encode_base62(self, num):
-        if num == 0:
-            return '0'
-        encoded = ''
-        while num > 0:
-            remainder = num % 62
-            encoded = self.BASE62_ALPHABET[remainder] + encoded
-            num = num // 62
-        return encoded
-
 
     def generate_id(self):
         with self.lock:
@@ -69,10 +56,8 @@ class Base62SnowflakeIDGenerator:
                 self.sequence
             )
 
-            id = self.encode_base62(id)
+            id = base62.encode(id)
             return id
-
-
 
 
 URL_REGEX = re.compile(r'^(https?:\/\/)?([\w\.-]+)\.([a-z]{2,6})([\/\w .–#%()\[\]\'-]*)*\/?$', re.UNICODE)
