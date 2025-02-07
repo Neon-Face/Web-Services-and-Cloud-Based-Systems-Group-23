@@ -4,7 +4,7 @@ import threading
 from flask import Flask, request, jsonify
 import string
 
-class SnowflakeIDGenerator:
+class Base62SnowflakeIDGenerator:
     def __init__(self, machine_id):
         self.machine_id = machine_id  
         self.sequence = 0  
@@ -23,6 +23,9 @@ class SnowflakeIDGenerator:
 
         if self.machine_id > self.max_machine_id or self.machine_id < 0:
             raise ValueError(f"Machine ID must be between 0 and {self.max_machine_id}")
+        
+        self.BASE62_ALPHABET = string.digits + string.ascii_lowercase + string.ascii_uppercase  # '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
 
     def _current_timestamp(self):
         return int(time.time())
@@ -32,6 +35,17 @@ class SnowflakeIDGenerator:
         while timestamp <= last_timestamp:
             timestamp = self._current_timestamp()
         return timestamp
+
+    def encode_base62(self, num):
+        if num == 0:
+            return '0'
+        encoded = ''
+        while num > 0:
+            remainder = num % 62
+            encoded = self.BASE62_ALPHABET[remainder] + encoded
+            num = num // 62
+        return encoded
+
 
     def generate_id(self):
         with self.lock:
@@ -54,20 +68,11 @@ class SnowflakeIDGenerator:
                 (self.machine_id << self.machine_id_shift) |
                 self.sequence
             )
+
+            id = self.encode_base62(id)
             return id
 
-# Base62
-BASE62_ALPHABET = string.digits + string.ascii_lowercase + string.ascii_uppercase  # '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'
-def encode_base62(num):
-    if num == 0:
-        return BASE62_ALPHABET[0]
-    
-    base62 = []
-    while num:
-        num, rem = divmod(num, 62)
-        base62.append(BASE62_ALPHABET[rem])
-    
-    return ''.join(reversed(base62))
+
 
 
 URL_REGEX = re.compile(r'^(https?:\/\/)?([\w\.-]+)\.([a-z]{2,6})([\/\w .–#%()\[\]\'-]*)*\/?$', re.UNICODE)
@@ -76,7 +81,7 @@ app = Flask(__name__)
 
 url_mapping = {}
 
-id_generator = SnowflakeIDGenerator(machine_id=1) 
+id_generator = Base62SnowflakeIDGenerator(machine_id=1) 
 
 @app.route('/', methods=['POST'])
 def create_short_url():
@@ -85,7 +90,7 @@ def create_short_url():
     if not url:
         return jsonify({"error": "URL is required"}), 400
 
-    short_id = str(encode_base62(id_generator.generate_id()))
+    short_id = str(id_generator.generate_id())
     url_mapping[short_id] = url
 
     return jsonify({"id": short_id}), 201
