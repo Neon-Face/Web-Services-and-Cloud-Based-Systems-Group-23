@@ -22,9 +22,6 @@ class Base62SnowflakeIDGenerator:
         self.timestamp_shift = self.machine_id_bits + self.sequence_bits
         self.machine_id_shift = self.sequence_bits
 
-        if self.machine_id > self.max_machine_id or self.machine_id < 0:
-            raise ValueError(f"Machine ID must be between 0 and {self.max_machine_id}")
-
     def current_timestamp(self):
         return int(time.time())
 
@@ -37,9 +34,6 @@ class Base62SnowflakeIDGenerator:
     def generate_id(self):
         with self.lock:
             timestamp = self.current_timestamp()
-
-            if timestamp < self.last_timestamp:
-                raise Exception("Clock moved backwards. Refusing to generate ID.")
 
             if timestamp == self.last_timestamp:
                 self.sequence = (self.sequence + 1) & self.max_sequence
