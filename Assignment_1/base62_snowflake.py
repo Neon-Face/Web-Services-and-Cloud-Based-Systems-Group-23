@@ -28,7 +28,7 @@ class Base62SnowflakeIDGenerator:
     def current_timestamp(self):
         return int(time.time())
 
-    def _wait_for_next_timestamp(self, last_timestamp):
+    def wait_for_next_timestamp(self, last_timestamp):
         timestamp = self.current_timestamp()
         while timestamp <= last_timestamp:
             timestamp = self.current_timestamp()
@@ -44,7 +44,7 @@ class Base62SnowflakeIDGenerator:
             if timestamp == self.last_timestamp:
                 self.sequence = (self.sequence + 1) & self.max_sequence
                 if self.sequence == 0:
-                    timestamp = self._wait_for_next_timestamp(self.last_timestamp)
+                    timestamp = self.wait_for_next_timestamp(self.last_timestamp)
             else:
                 self.sequence = 0
 
