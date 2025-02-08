@@ -4,12 +4,13 @@ import threading
 from flask import Flask, request, jsonify
 import base62
 
+
 class Base62SnowflakeIDGenerator:
     def __init__(self, machine_id):
-        self.machine_id = machine_id  
-        self.sequence = 0  
-        self.last_timestamp = -1  
-        self.lock = threading.Lock()  
+        self.machine_id = machine_id
+        self.sequence = 0
+        self.last_timestamp = -1
+        self.lock = threading.Lock()
 
         self.timestamp_bits = 31
         self.machine_id_bits = 5
@@ -50,22 +51,24 @@ class Base62SnowflakeIDGenerator:
             self.last_timestamp = timestamp
 
             id = (
-                (timestamp << self.timestamp_shift) |
-                (self.machine_id << self.machine_id_shift) |
-                self.sequence
+                    (timestamp << self.timestamp_shift) |
+                    (self.machine_id << self.machine_id_shift) |
+                    self.sequence
             )
 
             id = base62.encode(id)
             return id
 
 
-URL_REGEX = re.compile(r'^(https?:\/\/)?([\w\.-]+)\.([a-z]{2,6})([\/\w .–#%()\[\]\'-]*)*\/?$', re.UNICODE)
+URL_REGEX = re.compile(r'^(https?:\/\/)?([\w\.-]+)\.([a-z]{2,6})([\/\w .\–#%()\[\]\'-]*)*\/?$', re.UNICODE)
 
 app = Flask(__name__)
 
 url_mapping = {}
+stats_mapping = {}
 
-id_generator = Base62SnowflakeIDGenerator(machine_id=1) 
+id_generator = Base62SnowflakeIDGenerator(machine_id=1)
+
 
 @app.route('/', methods=['POST'])
 def create_short_url():
@@ -75,15 +78,21 @@ def create_short_url():
         return jsonify({"error": "URL is required"}), 400
 
     short_id = str(id_generator.generate_id())
+    timestamp = time.time()
     url_mapping[short_id] = url
+    stats_mapping[short_id] = {"clicks": 0, "created_at": timestamp, "last_accessed": None}
 
     return jsonify({"id": short_id}), 201
+
 
 @app.route('/<short_id>', methods=['GET'])
 def redirect_to_url(short_id):
     if short_id in url_mapping:
+        stats_mapping[short_id]["clicks"] += 1
+        stats_mapping[short_id]["last_accessed"] = time.time()
         return jsonify({"value": url_mapping[short_id]}), 301
     return jsonify({"error": "Not found"}), 404
+
 
 @app.route('/<string:short_id>', methods=['PUT'])
 def update_url(short_id):
@@ -94,29 +103,42 @@ def update_url(short_id):
 
     if not data or 'url' not in data:
         return jsonify({'error': 'Missing URL'}), 400
-    
+
     new_url = data['url']
     if not re.match(URL_REGEX, new_url):
         return jsonify({'error': 'Invalid URL'}), 400
-    
+
     url_mapping[short_id] = new_url
     return jsonify({'message': 'Updated successfully'}), 200
+
 
 @app.route('/<string:short_id>', methods=['DELETE'])
 def delete_url(short_id):
     if short_id not in url_mapping:
         return jsonify({'error': 'Not found'}), 404
     del url_mapping[short_id]
+    del stats_mapping[short_id]
     return '', 204
+
+
+@app.route('/stats/<short_id>', methods=['GET'])
+def get_url_stats(short_id):
+    if short_id in stats_mapping:
+        return jsonify(stats_mapping[short_id]), 200
+    return jsonify({"error": "Not found"}), 404
+
 
 @app.route('/', methods=['GET'])
 def list_urls():
     return jsonify({'urls': list(url_mapping.keys())}), 200
 
+
 @app.route('/', methods=['DELETE'])
 def delete_all():
     url_mapping.clear()
+    stats_mapping.clear()
     return '', 404
+
 
 if __name__ == '__main__':
     app.run(debug=True)
