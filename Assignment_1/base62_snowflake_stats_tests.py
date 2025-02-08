@@ -5,7 +5,7 @@ import unittest
 from flask import Flask, request, jsonify
 import base62
 from datetime import datetime
-from base64_snowflake import app
+from base62_snowflake import app
 
 
 class URLShortenerTests(unittest.TestCase):
