@@ -1,3 +1,5 @@
+![Build Status](https://github.com/Neon-Face/Web-Services-and-Cloud-Based-Systems-Group-23/actions/workflows/python-package-conda.yml/badge.svg)
+
 # Base62 Snowflake URL Shortener
 
 This project implements a simple URL shortener service using Flask and a custom Base62 Snowflake ID generator. The service provides endpoints to create, retrieve, update, delete, and view statistics for shortened URLs.
