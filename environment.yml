@@ -4,7 +4,9 @@ channels:
 dependencies:
   - python=3.10
   - flask
-  - pybase62
   - requests
   - pytest
   - flake8
+  - pip
+  - pip:
+      - pybase62
