@@ -37,4 +37,6 @@ jobs:
     - name: Test with pytest
       run: |
         conda install pytest
-        pytest Assignment_1/test/test_jay.py
+        cd Assignment_1/test/
+        pytest test_jay.py
+
