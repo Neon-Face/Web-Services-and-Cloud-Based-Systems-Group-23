@@ -44,7 +44,8 @@ jobs:
         conda install pytest
         cd Assignment_1/test/
         pytest -v test_jay.py
-        cd ..
     - name: Test stats bonus functionality with pytest
       run: |
+        cd Assignment_1/
+        ls -R
         pytest -v base62_snowflake_stats_tests.py
