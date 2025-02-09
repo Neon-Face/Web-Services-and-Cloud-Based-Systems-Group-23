@@ -38,6 +38,7 @@ jobs:
       run: |
         python Assignment_1/base62_snowflake.py &
         sleep 5  # Wait for the server to start
+        netstat -tuln
     - name: Test with pytest
       run: |
         conda install pytest
