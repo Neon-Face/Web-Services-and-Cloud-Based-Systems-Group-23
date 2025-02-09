@@ -53,8 +53,14 @@ class Base62SnowflakeIDGenerator:
             id = base62.encode(id)
             return id
 
-
-URL_REGEX = re.compile(r'^(https?:\/\/)?([\w\.-]+)\.([a-z]{2,6})([\/\w .\–#%()\[\]\'-]*)*\/?$', re.UNICODE)
+# Source: https://stackoverflow.com/a/17773849
+URL_REGEX = re.compile(
+    r'^(https?://(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|'
+    r'www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|'
+    r'https?://(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,}|'
+    r'www\.[a-zA-Z0-9]+\.[^\s]{2,})$',
+    re.UNICODE
+)
 
 app = Flask(__name__)
 
