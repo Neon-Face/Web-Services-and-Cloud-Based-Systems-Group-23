@@ -34,6 +34,11 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Verify test data file exists
       run: ls -R Assignment_1/test/
+    - name: Start Flask Server
+      run: |
+        conda activate base
+        python Assignment_1/base62_snowflake.py &
+        sleep 5  # Wait for the server to start
     - name: Test with pytest
       run: |
         conda install pytest
