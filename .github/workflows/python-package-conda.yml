@@ -36,7 +36,6 @@ jobs:
       run: ls -R Assignment_1/test/
     - name: Start Flask Server
       run: |
-        conda activate base
         python Assignment_1/base62_snowflake.py &
         sleep 5  # Wait for the server to start
     - name: Test with pytest
