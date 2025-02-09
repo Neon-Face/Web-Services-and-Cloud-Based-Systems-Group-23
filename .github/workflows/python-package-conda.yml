@@ -20,9 +20,11 @@ jobs:
         echo $CONDA/bin >> $GITHUB_PATH
     - name: Install dependencies
       run: |
+        source $CONDA/etc/profile.d/conda.sh
+        conda init bash
         conda env update --file environment.yml --name base
         conda activate base
-        pip install --no-cache-dir pybase62
+        pip install --no-cache-dir pybase62  # Install pybase62 via pip
     - name: Lint with flake8
       run: |
         conda install flake8
