@@ -12,7 +12,7 @@ from flask import Flask, request, jsonify
 import base62
 
 # JWT configuration
-JWT_SECRET = "your-secret-key-here"
+JWT_SECRET = "Web-Services-and-Cloud-Based-Systems-Group-23"
 
 # Base62 ID Generator
 class Base62SnowflakeIDGenerator:
