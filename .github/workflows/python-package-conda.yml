@@ -49,3 +49,8 @@ jobs:
         cd Assignment_1/
         ls -R
         pytest -v base62_snowflake_stats_tests.py
+    - name: Run assignment 2 tests with pytest
+      run: |
+        conda install pytest
+        cd Assignment_1/test/
+        pytest -v assignment_2_app.py
