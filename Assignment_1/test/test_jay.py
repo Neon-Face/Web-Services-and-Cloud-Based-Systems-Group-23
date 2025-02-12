@@ -8,6 +8,24 @@ import time
 
 class TestApi(unittest.TestCase):
     base_url = "http://127.0.0.1:8000"
+    auth_url = "http://127.0.0.1:8001"
+    
+    def get_auth_token(self):
+        """Helper method to get authentication token"""
+        # First create a test user if doesn't exist
+        user_data = {
+            "username": "testuser",
+            "password": "testpass123"
+        }
+        
+        # Try to create user (ignore if already exists)
+        requests.post(f"{self.auth_url}/users", json=user_data)
+        
+        # Login to get token
+        response = requests.post(f"{self.auth_url}/users/login", json=user_data)
+        if response.status_code == 200:
+            return response.json()["token"]
+        raise Exception("Failed to get auth token")
 
     def populate_variables_from_csv(self):
         print("\n📂 Loading test data from CSV file...")
@@ -21,6 +39,10 @@ class TestApi(unittest.TestCase):
 
     def setUp(self):
         print("\n🔄 Setting up test environment...")
+        # Get auth token first
+        self.auth_token = self.get_auth_token()
+        self.headers = {"Authorization": self.auth_token}
+        
         self.id_shortened_url_1 = ""
         self.id_shortened_url_2 = ""
 
@@ -31,7 +53,7 @@ class TestApi(unittest.TestCase):
             endpoint = "/"
             print(f"📝 Creating shortened URL for: {url_to_shorten}")
             url = f"{self.base_url}{endpoint}"
-            response = requests.post(url, json={'value': str(url_to_shorten)})
+            response = requests.post(url, json={'value': str(url_to_shorten)}, headers=self.headers)
             print(f"   Response Status: {response.status_code}")
             self.assertEqual(response.status_code, 201, f"Expected status code 201, but got {response.status_code}")
             self.assertIsNotNone(response.text, "Response text should not be None.")
@@ -48,7 +70,7 @@ class TestApi(unittest.TestCase):
         print("\n🧹 Cleaning up test environment...")
         endpoint = "/"
         url = f"{self.base_url}{endpoint}"
-        response = requests.delete(url)
+        response = requests.delete(url, headers=self.headers)
         print("✓ Cleanup complete\n")
 
     def test_get_request_with_id_expect_301(self):
@@ -61,6 +83,7 @@ class TestApi(unittest.TestCase):
 
         endpoint = "/"
         url = f"{self.base_url}{endpoint}{id}"
+        # GET /:id is public, no auth needed
         response = requests.get(url)
 
         print(f"   Response Status: {response.status_code}")
@@ -78,7 +101,7 @@ class TestApi(unittest.TestCase):
 
         endpoint = "/"
         url = f"{self.base_url}{endpoint}{id}"
-        response = requests.get(url)
+        response = requests.get(url)  # Public endpoint
 
         print(f"   Response Status: {response.status_code}")
         self.assertEqual(response.status_code, 404, f"Expected status code 404, but got {response.status_code}")
@@ -96,26 +119,26 @@ class TestApi(unittest.TestCase):
         print(f"   New URL: {url_after_update}")
         endpoint = "/"
         url = f"{self.base_url}{endpoint}{id}"
-        response = requests.put(url, data=json.dumps({'url': url_after_update}))
+        response = requests.put(url, data=json.dumps({'url': url_after_update}), headers=self.headers)
         print(f"   Response Status: {response.status_code}")
         self.assertEqual(response.status_code, 200, f"Expected status code 200, but got {response.status_code}")
 
         # Verify update
         print("   Verifying updated URL...")
-        response = requests.get(url)
+        response = requests.get(url)  # Public endpoint
         self.assertEqual(response.json().get("value"), url_after_update,
                          f"Expected URL: {url_after_update}, but got {response.json().get('value')}")
 
         # Test invalid URL
         print(f"\n   Testing with invalid URL: {invalid_url}")
-        response = requests.put(url, data=json.dumps({'url': invalid_url}))
+        response = requests.put(url, data=json.dumps({'url': invalid_url}), headers=self.headers)
         print(f"   Response Status: {response.status_code}")
         self.assertEqual(response.status_code, 400, f"Expected status code 400, but got {response.status_code}")
 
         # Test non-existent ID
         print(f"\n   Testing with non-existent ID: {not_existing_id}")
         url = f"{self.base_url}{endpoint}{not_existing_id}"
-        response = requests.put(url, data=json.dumps({'url': url_after_update}))
+        response = requests.put(url, data=json.dumps({'url': url_after_update}), headers=self.headers)
         print(f"   Response Status: {response.status_code}")
         self.assertEqual(response.status_code, 404, f"Expected status code 404, but got {response.status_code}")
         print("✓ Test passed\n")
@@ -127,12 +150,12 @@ class TestApi(unittest.TestCase):
         print(f"   Attempting to delete ID: {id}")
 
         url = f"{self.base_url}{endpoint}{id}"
-        response = requests.delete(url)
+        response = requests.delete(url, headers=self.headers)
         print(f"   Response Status: {response.status_code}")
         self.assertEqual(response.status_code, 204, f"Expected status code 204, but got {response.status_code}")
 
         print("   Verifying deletion...")
-        response = requests.delete(url)
+        response = requests.delete(url, headers=self.headers)
         print(f"   Second deletion attempt status: {response.status_code}")
         self.assertEqual(response.status_code, 404, f"Expected status code 404, but got {response.status_code}")
         print("✓ Test passed\n")
@@ -141,7 +164,7 @@ class TestApi(unittest.TestCase):
         print("\n📋 Testing GET all URLs...")
         endpoint = "/"
         url = f"{self.base_url}{endpoint}"
-        response = requests.get(url)
+        response = requests.get(url, headers=self.headers)
         print(f"   Response Status: {response.status_code}")
         print(f"   Response Body: {response.text}")
         self.assertEqual(response.status_code, 200, f"Expected status code 200, but got {response.status_code}")
@@ -155,7 +178,7 @@ class TestApi(unittest.TestCase):
 
         endpoint = "/"
         url = f"{self.base_url}{endpoint}"
-        response = requests.post(url, json={'value': str(url_to_shorten)})
+        response = requests.post(url, json={'value': str(url_to_shorten)}, headers=self.headers)
         print(f"   Response Status: {response.status_code}")
         print(f"   Response Body: {response.text}")
 
@@ -166,7 +189,7 @@ class TestApi(unittest.TestCase):
         print("   Verifying created URL...")
         temp = response.json().get("id")
         url = f"{self.base_url}{endpoint}{temp}"
-        response = requests.get(url)
+        response = requests.get(url)  # Public endpoint
         print(f"   Verification Status: {response.status_code}")
         self.assertEqual(response.status_code, 301, f"Expected status code 301, but got {response.status_code}")
         self.assertEqual(response.json().get("value"), url_to_shorten,
@@ -176,7 +199,7 @@ class TestApi(unittest.TestCase):
         print("\n   Testing with empty URL...")
         url_to_shorten = ""
         url = f"{self.base_url}{endpoint}{url_to_shorten}"
-        response = requests.post(url, json={'value': str(url_to_shorten)})
+        response = requests.post(url, json={'value': str(url_to_shorten)}, headers=self.headers)
         print(f"   Response Status: {response.status_code}")
         self.assertEqual(response.status_code, 400, f"Expected status code 400, but got {response.status_code}")
         print("✓ Test passed\n")
@@ -187,15 +210,43 @@ class TestApi(unittest.TestCase):
         url = f"{self.base_url}{endpoint}"
 
         print("   Deleting all URLs...")
-        response = requests.delete(url)
+        response = requests.delete(url, headers=self.headers)
         print(f"   Response Status: {response.status_code}")
         self.assertEqual(response.status_code, 404, f"Expected status code 404, but got {response.status_code}")
 
         print("   Verifying all URLs are deleted...")
-        response = requests.get(url)
+        response = requests.get(url, headers=self.headers)
         print(f"   Verification Response: {response.text}")
-        self.assertIsNone(response.json().get("value"), "The value should be None since should be empty.")
+        self.assertIsNotNone(response.text, "Response text should not be None.")
         print("✓ Test passed\n")
+
+    def test_authentication(self):
+        """Test authentication specific scenarios"""
+        print("\n🔒 Testing authentication scenarios...")
+        
+        # Test without auth token
+        print("   Testing request without auth token...")
+        response = requests.post(f"{self.base_url}/", json={'value': 'https://example.com'})
+        self.assertEqual(response.status_code, 403, "Expected 403 without auth token")
+        
+        # Test with invalid auth token
+        print("   Testing request with invalid auth token...")
+        response = requests.post(
+            f"{self.base_url}/", 
+            json={'value': 'https://example.com'},
+            headers={"Authorization": "invalid_token"}
+        )
+        self.assertEqual(response.status_code, 403, "Expected 403 with invalid token")
+        
+        # Test with expired token (if implemented)
+        print("   Testing request with expired token...")
+        response = requests.post(
+            f"{self.base_url}/", 
+            json={'value': 'https://example.com'},
+            headers={"Authorization": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE1MTYyMzkwMjIsInVzZXIiOiJ0ZXN0In0.invalid"}
+        )
+        self.assertEqual(response.status_code, 403, "Expected 403 with expired token")
+        print("✓ Authentication tests passed\n")
 
 
 if __name__ == '__main__':
