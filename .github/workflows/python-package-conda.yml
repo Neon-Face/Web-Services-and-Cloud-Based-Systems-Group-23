@@ -37,7 +37,9 @@ jobs:
     - name: Start Flask Server
       run: |
         python Assignment_2/url_shortener.py &
-        sleep 5  # Wait for the server to start
+        sleep 5  # Wait for the url shortener server to start
+        python Assignment_2/authenticator.py &
+        sleep 5  # Wait for the authenticator server to start
         netstat -tuln
     - name: Test main functionality with pytest
       run: |
