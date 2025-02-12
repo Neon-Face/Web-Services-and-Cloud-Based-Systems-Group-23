@@ -1,3 +1,5 @@
+# server.py
+
 import re
 import time
 import threading
@@ -12,6 +14,7 @@ import base62
 # JWT configuration
 JWT_SECRET = "your-secret-key-here"
 
+# Base62 ID Generator
 class Base62SnowflakeIDGenerator:
     def __init__(self, machine_id):
         self.machine_id = machine_id
@@ -89,8 +92,8 @@ def verify_jwt(token):
         header_b64, payload_b64, signature_b64 = token.split('.')
         
         # Verify signature
-        expected_signature = base64.urlsafe_b64decode(signature_b64 + '=' * (-len(signature_b64) % 4))
         message = f"{header_b64}.{payload_b64}".encode()
+        expected_signature = base64.urlsafe_b64decode(signature_b64 + '=' * (-len(signature_b64) % 4))
         actual_signature = hmac.new(JWT_SECRET.encode(), message, hashlib.sha256).digest()
         
         if not hmac.compare_digest(expected_signature, actual_signature):
@@ -123,7 +126,7 @@ def require_auth(f):
         return f(*args, **kwargs)
     return decorated
 
-# Source: https://stackoverflow.com/a/17773849
+# URL validation regex
 URL_REGEX = re.compile(
     r'^(https?://(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|'
     r'www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|'
@@ -132,7 +135,7 @@ URL_REGEX = re.compile(
     re.UNICODE
 )
 
-# Initialize Flask apps
+# Initialize Flask app
 app = Flask(__name__)
 
 # In-memory storage
@@ -291,7 +294,4 @@ def delete_all():
     return '', 204
 
 if __name__ == '__main__':
-    # Run on port 8000 by default, use port 8001 if specified
-    import sys
-    port = 8001 if len(sys.argv) > 1 and sys.argv[1] == '--auth' else 8000
-    app.run(debug=True, port=port)
+    app.run(debug=True, port=8000)
