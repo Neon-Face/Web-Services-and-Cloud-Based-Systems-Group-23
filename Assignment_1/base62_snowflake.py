@@ -139,7 +139,7 @@ url_app = Flask(__name__)
 
 # In-memory storage
 url_mapping = {}  # Format: {short_id: {"url": str, "user": str}}
-stats_mapping = {}
+stats_mapping = {}  # Format: {short_id: {"clicks": int, "created_at": timestamp, "last_accessed": timestamp}}
 users_db = {}  # Format: {username: {"password": hashed_password}}
 
 id_generator = Base62SnowflakeIDGenerator(machine_id=1)
@@ -239,6 +239,18 @@ def delete_url(short_id):
     del url_mapping[short_id]
     del stats_mapping[short_id]
     return '', 204
+
+@url_app.route('/stats/<short_id>', methods=['GET'])
+@require_auth
+def get_url_stats(short_id):
+    """Get statistics for a specific shortened URL"""
+    if short_id not in stats_mapping:
+        return jsonify({"error": "Not found"}), 404
+        
+    if url_mapping[short_id]["user"] != request.user:
+        return jsonify({"error": "forbidden"}), 403
+        
+    return jsonify(stats_mapping[short_id]), 200
 
 @url_app.route('/', methods=['GET'])
 @require_auth
