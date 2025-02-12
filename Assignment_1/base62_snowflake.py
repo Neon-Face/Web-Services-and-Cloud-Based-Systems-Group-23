@@ -1,55 +1,16 @@
 import re
 import time
 import threading
-import hmac
 import hashlib
+import hmac
 import base64
 import json
 from functools import wraps
 from flask import Flask, request, jsonify
 import base62
 
-JWT_SECRET = "Web-Services-and-Cloud-Based-Systems-Group-23" 
-
-def verify_jwt(token):
-    try:
-        # Split the JWT into its parts
-        header_b64, payload_b64, signature_b64 = token.split('.')
-        
-        # Verify signature
-        message = f"{header_b64}.{payload_b64}".encode()
-        expected_signature = base64.urlsafe_b64decode(signature_b64 + '=' * (-len(signature_b64) % 4))
-        actual_signature = hmac.new(JWT_SECRET.encode(), message, hashlib.sha256).digest()
-        
-        if not hmac.compare_digest(expected_signature, actual_signature):
-            return None
-            
-        # Decode payload
-        payload_str = base64.urlsafe_b64decode(payload_b64 + '=' * (-len(payload_b64) % 4))
-        payload = json.loads(payload_str)
-        
-        # Check expiration
-        if payload.get('exp', 0) < time.time():
-            return None
-            
-        return payload.get('sub')  # Return username
-    except:
-        return None
-
-def require_auth(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({"error": "forbidden"}), 403
-            
-        username = verify_jwt(auth_header)
-        if not username:
-            return jsonify({"error": "forbidden"}), 403
-            
-        request.user = username
-        return f(*args, **kwargs)
-    return decorated
+# JWT configuration
+JWT_SECRET = "your-secret-key-here"
 
 class Base62SnowflakeIDGenerator:
     def __init__(self, machine_id):
@@ -99,6 +60,69 @@ class Base62SnowflakeIDGenerator:
             id = base62.encode(id)
             return id
 
+# JWT Functions
+def generate_jwt(username):
+    header = {
+        "alg": "HS256",
+        "typ": "JWT"
+    }
+    payload = {
+        "sub": username,
+        "iat": int(time.time()),
+        "exp": int(time.time()) + 3600  # 1 hour expiration
+    }
+    
+    header_encoded = base64.urlsafe_b64encode(json.dumps(header).encode()).rstrip(b'=')
+    payload_encoded = base64.urlsafe_b64encode(json.dumps(payload).encode()).rstrip(b'=')
+    
+    signature = hmac.new(
+        JWT_SECRET.encode(),
+        f"{header_encoded.decode()}.{payload_encoded.decode()}".encode(),
+        hashlib.sha256
+    )
+    signature_encoded = base64.urlsafe_b64encode(signature.digest()).rstrip(b'=')
+    
+    return f"{header_encoded.decode()}.{payload_encoded.decode()}.{signature_encoded.decode()}"
+
+def verify_jwt(token):
+    try:
+        header_b64, payload_b64, signature_b64 = token.split('.')
+        
+        # Verify signature
+        expected_signature = base64.urlsafe_b64decode(signature_b64 + '=' * (-len(signature_b64) % 4))
+        message = f"{header_b64}.{payload_b64}".encode()
+        actual_signature = hmac.new(JWT_SECRET.encode(), message, hashlib.sha256).digest()
+        
+        if not hmac.compare_digest(expected_signature, actual_signature):
+            return None
+            
+        # Decode payload
+        payload_str = base64.urlsafe_b64decode(payload_b64 + '=' * (-len(payload_b64) % 4))
+        payload = json.loads(payload_str)
+        
+        # Check expiration
+        if payload.get('exp', 0) < time.time():
+            return None
+            
+        return payload.get('sub')
+    except:
+        return None
+
+def require_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({"error": "forbidden"}), 403
+            
+        username = verify_jwt(auth_header)
+        if not username:
+            return jsonify({"error": "forbidden"}), 403
+            
+        request.user = username
+        return f(*args, **kwargs)
+    return decorated
+
 # Source: https://stackoverflow.com/a/17773849
 URL_REGEX = re.compile(
     r'^(https?://(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|'
@@ -108,14 +132,65 @@ URL_REGEX = re.compile(
     re.UNICODE
 )
 
+# Initialize Flask apps
 app = Flask(__name__)
 
-# Modified to store user ownership
-url_mapping = {}
+# In-memory storage
+url_mapping = {}  # Format: {short_id: {"url": str, "user": str}}
 stats_mapping = {}
+users_db = {}  # Format: {username: {"password": hashed_password}}
 
 id_generator = Base62SnowflakeIDGenerator(machine_id=1)
 
+# Auth endpoints
+@app.route('/users', methods=['POST'])
+def create_user():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    
+    if username in users_db:
+        return jsonify({"error": "duplicate"}), 409
+        
+    password_hash = hashlib.sha256(password.encode()).hexdigest()
+    users_db[username] = {"password": password_hash}
+    
+    return '', 201
+
+@app.route('/users', methods=['PUT'])
+def update_password():
+    data = request.get_json()
+    username = data.get('username')
+    old_password = data.get('old_password')
+    new_password = data.get('new_password')
+    
+    if username not in users_db:
+        return jsonify({"error": "forbidden"}), 403
+        
+    old_hash = hashlib.sha256(old_password.encode()).hexdigest()
+    if users_db[username]["password"] != old_hash:
+        return jsonify({"error": "forbidden"}), 403
+        
+    users_db[username]["password"] = hashlib.sha256(new_password.encode()).hexdigest()
+    return '', 200
+
+@app.route('/users/login', methods=['POST'])
+def login():
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    
+    if username not in users_db:
+        return jsonify({"error": "forbidden"}), 403
+        
+    password_hash = hashlib.sha256(password.encode()).hexdigest()
+    if users_db[username]["password"] != password_hash:
+        return jsonify({"error": "forbidden"}), 403
+        
+    token = generate_jwt(username)
+    return jsonify({"token": token}), 200
+
+# URL Shortener endpoints
 @app.route('/', methods=['POST'])
 @require_auth
 def create_short_url():
@@ -194,9 +269,8 @@ def get_url_stats(short_id):
 @app.route('/', methods=['GET'])
 @require_auth
 def list_urls():
-    # Only return URLs owned by the requesting user
     user_urls = {
-        id: data["url"]
+        id: data["url"] 
         for id, data in url_mapping.items()
         if data["user"] == request.user
     }
@@ -205,7 +279,6 @@ def list_urls():
 @app.route('/', methods=['DELETE'])
 @require_auth
 def delete_all():
-    # Only delete URLs owned by the requesting user
     ids_to_delete = [
         id for id, data in url_mapping.items()
         if data["user"] == request.user
@@ -218,4 +291,7 @@ def delete_all():
     return '', 204
 
 if __name__ == '__main__':
-    app.run(debug=True, port=8000)
+    # Run on port 8000 by default, use port 8001 if specified
+    import sys
+    port = 8001 if len(sys.argv) > 1 and sys.argv[1] == '--auth' else 8000
+    app.run(debug=True, port=port)
