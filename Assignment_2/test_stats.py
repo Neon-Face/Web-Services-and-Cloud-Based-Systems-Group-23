@@ -7,19 +7,19 @@ import requests
 from flask import Flask, request, jsonify
 import base62
 from datetime import datetime
-from authenticator import app
+from authenticator import app as url_app
 
 class URLShortenerTests(unittest.TestCase):
     auth_url = "http://127.0.0.1:8001"
     
     def setUp(self):
-        self.app = app.test_client()
+        self.app = url_app.test_client()
         self.app.testing = True
         
         # Get auth token from real auth service
         user_data = {
-            "username": "test",
-            "password": "test"
+            "username": "luca",
+            "password": "test_password"
         }
         
         try:
