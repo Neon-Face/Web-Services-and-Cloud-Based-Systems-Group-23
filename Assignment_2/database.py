@@ -1,28 +1,20 @@
 import sqlite3
 
 def show_all_data(db_path):
-    # 连接到 SQLite 数据库
-    conn = sqlite3.connect(db_path)  # 确保路径正确
+    conn = sqlite3.connect(db_path)  
     cursor = conn.cursor()
-
-    # 查询 users 表中的所有数据
     cursor.execute("SELECT * FROM User")
-
-    # 获取查询结果
     users = cursor.fetchall()
-
-    # 打印查询结果
     print("ID | Username | Pwd")
     print("-" * 20)
     for user in users:
         print(f"{user[0]} | {user[1]} {user[2]}")
-    # 关闭数据库连接
     conn.close()
     return
 
 def check_user_exists(db_path, username):
 
-    conn = sqlite3.connect(db_path)  # 确保路径正确
+    conn = sqlite3.connect(db_path)  
     cursor = conn.cursor()
 
     cursor.execute("SELECT id FROM User WHERE username = ?", (username,))
@@ -58,3 +50,5 @@ def update_password(db_path, username, new_password):
     conn.close()
     
     return affected_rows > 0
+
+# show_all_data("instance/users.db")

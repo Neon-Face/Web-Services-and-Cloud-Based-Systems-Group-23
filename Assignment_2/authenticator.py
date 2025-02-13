@@ -2,7 +2,6 @@ from flask import Flask,request,jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_sqlalchemy import SQLAlchemy
 import jwt
-import database
 
 
 app = Flask(__name__)

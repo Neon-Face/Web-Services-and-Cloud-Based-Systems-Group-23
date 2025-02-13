@@ -4,7 +4,7 @@ import base64
 import json
 import time
 
-
+# Generate JWT
 def generate_header():
     header = {
         "alg":"HS256",
@@ -30,6 +30,7 @@ def generate_jwt(username, secret_key):
     signature = generate_signature(header,payload,secret_key)
     return f"{header}.{payload}.{signature}"
 
+# Validate JWT
 def parse_jwt(token):
     parts = token.split(".")
     if len(parts) != 3:
