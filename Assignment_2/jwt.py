@@ -4,6 +4,7 @@ import base64
 import json
 import time
 
+
 def generate_header():
     header = {
         "alg":"HS256",
@@ -20,8 +21,8 @@ def generate_payload(username,expiration_hours=1):
 
 def generate_signature(header,payload,secret_key):
     message = f"{header}.{payload}"
-    signature = hmac.new(secret_key.encode(),message,hashlib.sha256).digest()
-    return base64.urlsafe_b64decode(signature).decode().rstrip("=")
+    signature = hmac.new(secret_key.encode(),message.encode() ,hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(signature).decode().rstrip("=")
 
 def generate_jwt(username, secret_key):
     header = generate_header()
@@ -33,6 +34,11 @@ def parse_jwt(token):
     parts = token.split(".")
     if len(parts) != 3:
         raise ValueError("Invalid JWT format")
+    print("!!!!!!!!!")
+    print(parts[0])
+    print(parts[1])
+    print(parts[2])
+    print("!!!!!!!!!")
     return parts[0], parts[1], parts[2]
 
 def verify_signature(header,payload,signature,secret_key):
