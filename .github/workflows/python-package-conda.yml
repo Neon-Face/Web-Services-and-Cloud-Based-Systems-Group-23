@@ -24,7 +24,7 @@ jobs:
         conda init bash
         conda env update --file environment.yml --name base
         conda activate base
-        pip install --no-cache-dir pybase62  # Install pybase62 via pip
+        pip install --no-cache-dir pybase62 flask_sqlalchemy # Install pybase62 and flask_sqlalchemy via pip
     - name: Lint with flake8
       run: |
         conda install flake8
