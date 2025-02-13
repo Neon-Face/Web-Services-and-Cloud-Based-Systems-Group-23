@@ -16,9 +16,6 @@ def show_all_data(db_path):
     print("-" * 20)
     for user in users:
         print(f"{user[0]} | {user[1]} {user[2]}")
-
-
-
     # 关闭数据库连接
     conn.close()
     return
@@ -61,5 +58,3 @@ def update_password(db_path, username, new_password):
     conn.close()
     
     return affected_rows > 0
-
-show_all_data('instance/users.db')
