@@ -46,4 +46,9 @@ jobs:
         conda install pytest
         cd Assignment_2
         pytest -v test_app.py
+    - name: Test stats functionality with pytest
+      run: |
+        conda install pytest
+        cd Assignment_2
+        pytest -v test_stats.py
 
