@@ -55,20 +55,6 @@ class Base62SnowflakeIDGenerator:
             id = base62.encode(id)
             return id
 
-# Determin whether a user has permission
-def has_permission(SECRET_KEY):
-    token = request.headers.get('Authorization')
-    if not token:
-        print("Authorization token is required")
-        return False
-    if not jwt.verify_jwt(token,SECRET_KEY):
-        print("No Permission: Invalid or expired token")
-        return False
-    # Get username
-    _, payload, _ = jwt.parse_jwt(token)
-    username = payload
-    #.get("username")
-    return username
 
 # Source: https://stackoverflow.com/a/17773849
 URL_REGEX = re.compile(
@@ -88,7 +74,7 @@ id_generator = Base62SnowflakeIDGenerator(machine_id=1)
 @app.route('/', methods=['POST'])
 def create_short_url():
 
-    username = has_permission(SECRET_KEY)
+    username = jwt.has_permission(SECRET_KEY)
     if username:
         data = request.get_json()
         url = data.get('value')
@@ -99,8 +85,8 @@ def create_short_url():
 
         short_id = str(id_generator.generate_id())
         timestamp = time.time()
-        url_mapping[short_id] = {"url":url}
-        stats_mapping[short_id] = {"clicks": 0, "created_at": timestamp, "last_accessed": None}
+        url_mapping[short_id] = {"url":url,'username':username}
+        stats_mapping[short_id] = {"clicks": 0, "created_at": timestamp, "last_accessed": None,'username':username}
         return jsonify({"id": short_id}), 201
     
     else:
@@ -110,12 +96,14 @@ def create_short_url():
 @app.route('/<short_id>', methods=['GET'])
 def redirect_to_url(short_id):
     
-    username = has_permission(SECRET_KEY)
+    username = jwt.has_permission(SECRET_KEY)
 
     if username:
         if not (short_id in url_mapping):
             return jsonify({"error": "Not found"}), 404
-        # Can only redirect to his/her own url        
+        # Can only redirect to his/her own url  
+        if url_mapping[short_id]['username'] != username:
+            return jsonify({"error": "Forbidden: You can only redirect to your own url"}), 403
         stats_mapping[short_id]["clicks"] += 1
         stats_mapping[short_id]["last_accessed"] = time.time()
         return jsonify({"value": url_mapping[short_id]['url']}), 301
@@ -125,12 +113,15 @@ def redirect_to_url(short_id):
 
 @app.route('/<string:short_id>', methods=['PUT'])
 def update_url(short_id):
-    username = has_permission(SECRET_KEY)
+    username = jwt.has_permission(SECRET_KEY)
 
     if username:
         if not (short_id in url_mapping):
             return jsonify({"error": "Not found"}), 404
         
+        if url_mapping[short_id]['username'] != username:
+            return jsonify({"error": "Forbidden: You can only update to your own url"}), 403
+
         data = request.get_json(force=True)
 
         if not data or 'url' not in data:
@@ -149,11 +140,14 @@ def update_url(short_id):
 @app.route('/<string:short_id>', methods=['DELETE'])
 def delete_url(short_id):
 
-    username = has_permission(SECRET_KEY)
+    username = jwt.has_permission(SECRET_KEY)
 
     if username:
         if short_id not in url_mapping:
             return jsonify({'error': 'Not found'}), 404
+        
+        if url_mapping[short_id]['username'] != username:
+            return jsonify({"error": "Forbidden: You can only delete to your own url"}), 403
         
         del url_mapping[short_id]
         del stats_mapping[short_id]
@@ -164,34 +158,44 @@ def delete_url(short_id):
 
 @app.route('/stats/<short_id>', methods=['GET'])
 def get_url_stats(short_id):
-    username = has_permission(SECRET_KEY)
+    username = jwt.has_permission(SECRET_KEY)
 
     if username:
-        if short_id in stats_mapping:
-            return jsonify(stats_mapping[short_id]), 200
-        return jsonify({"error": "Not found"}), 404
+        if short_id not in url_mapping:
+            return jsonify({"error": "Not found"}), 404
+        
+        if url_mapping[short_id]['username'] != username:
+            return jsonify({"error": "Forbidden: You can only read your own url"}), 403
+        
+        return jsonify(url_mapping[short_id]), 200
     else:
         return jsonify({'error': 'Forbidden: No permission'}), 403
 
 
 @app.route('/', methods=['GET'])
 def list_urls():
-    username = has_permission(SECRET_KEY)
+    username = jwt.has_permission(SECRET_KEY)
     if username:
-        return jsonify({'urls': list(url_mapping.keys())}), 200
+        filtered_urls = [entry['url'] for entry in url_mapping.values() if entry["username"] == username]
+        return jsonify({'urls': filtered_urls}), 200
     else:
         return jsonify({'error': 'Forbidden: No permission'}), 403
 
 
 @app.route('/', methods=['DELETE'])
-def delete_all():
-    username = has_permission(SECRET_KEY)
+def delete_user_urls():
+    username = jwt.has_permission(SECRET_KEY)
     if username:
-        url_mapping.clear()
-        stats_mapping.clear()
-        return '', 404
+        urls_to_delete = [key for key, value in url_mapping.items() if value.get("username") == username]
+        
+        for key in urls_to_delete:
+            url_mapping.pop(key, None)  
+            stats_mapping.pop(key, None)  
+
+        return '', 404  
     else:
         return jsonify({'error': 'Forbidden: No permission'}), 403
+
 
 if __name__ == '__main__':
     app.run(debug=True, port=8000)

@@ -51,4 +51,3 @@ def update_password(db_path, username, new_password):
     
     return affected_rows > 0
 
-# show_all_data("instance/users.db")
